@@ -1,6 +1,6 @@
 /*!
  * Simulacra.js
- * Version 2.0.0
+ * Version 2.0.2
  * MIT License
  * http://simulacra.js.org/
  */
@@ -10,7 +10,7 @@
 var processNodes = require('./process_nodes')
 var keyMap = require('./key_map')
 
-var markerMap = processNodes.markerMap
+var markerKey = keyMap.marker
 var hasDefinitionKey = keyMap.hasDefinition
 var isBoundToParentKey = keyMap.isBoundToParent
 var replaceAttributeKey = keyMap.replaceAttribute
@@ -76,7 +76,8 @@ function bindKeys (scope, obj, def, parentNode, path) {
 }
 
 
-// This is an internal function, the arguments aren't pretty.
+// This is an internal function that's used for defining the getters and
+// setters.
 function bindKey (scope, obj, def, key, parentNode) {
   var memo = storeMemo.get(obj)
   var meta = storeMeta.get(obj)[key]
@@ -130,7 +131,7 @@ function bindKey (scope, obj, def, key, parentNode) {
   }
 
   function setter (x) {
-    var marker = markerMap.get(branch)
+    var marker = branch[markerKey]
     var value, currentNode
     var a, b, i, j
 
@@ -153,7 +154,7 @@ function bindKey (scope, obj, def, key, parentNode) {
     if (value.length !== previousValues.length)
       previousValues.length = activeNodes.length = value.length
 
-    // Assign array mutator methods.
+    // Assign array mutator methods if we get an array.
     if (valueIsArray) {
       // Some mutators such as `sort`, `reverse`, `fill`, `copyWithin` are
       // not present here. That is because they trigger the array index
@@ -183,7 +184,7 @@ function bindKey (scope, obj, def, key, parentNode) {
     Object.defineProperty(array, i, {
       get: function () { return value },
       set: function (x) {
-        var marker = markerMap.get(branch)
+        var marker = branch[markerKey]
         var a, b, currentNode
 
         value = x
@@ -202,7 +203,7 @@ function bindKey (scope, obj, def, key, parentNode) {
   }
 
   function removeNode (value, previousValue, i) {
-    var marker = markerMap.get(branch)
+    var marker = branch[markerKey]
     var activeNode = activeNodes[i]
     var returnValue
 
@@ -238,7 +239,7 @@ function bindKey (scope, obj, def, key, parentNode) {
     if (value === void 0) value = null
     if (previousValue === void 0) previousValue = null
 
-    // If value is null, just remove it.
+    // If value is null, just remove the Node.
     if (value === null) {
       removeNode(null, previousValue, i)
       return null
@@ -306,7 +307,7 @@ function bindKey (scope, obj, def, key, parentNode) {
   }
 
   function push () {
-    var marker = markerMap.get(branch)
+    var marker = branch[markerKey]
     var i = this.length
     var j = i + arguments.length
     var currentNode
@@ -334,7 +335,7 @@ function bindKey (scope, obj, def, key, parentNode) {
   }
 
   function unshift () {
-    var marker = markerMap.get(branch)
+    var marker = branch[markerKey]
     var i = this.length
     var j, k, currentNode
 
@@ -357,7 +358,7 @@ function bindKey (scope, obj, def, key, parentNode) {
   }
 
   function splice (start, count) {
-    var marker = markerMap.get(branch)
+    var marker = branch[markerKey]
     var insert = []
     var i, j, k, value, currentNode
 
@@ -455,30 +456,14 @@ function updateChange (targetKey, path, key) {
 },{"./key_map":5,"./process_nodes":6}],2:[function(require,module,exports){
 'use strict'
 
-
 module.exports = featureCheck
-
 
 /**
  * Check if capabilities are available, or throw an error.
  *
  * @param {*} globalScope
  */
-function featureCheck (globalScope) {
-  var features = [
-    // ECMAScript features.
-    [ Object, 'defineProperty' ],
-    [ Object, 'freeze' ],
-    [ Object, 'isFrozen' ],
-    [ WeakMap ],
-
-    // DOM features.
-    [ 'document', 'createTreeWalker' ],
-    [ 'Node', 'prototype', 'contains' ],
-    [ 'Node', 'prototype', 'insertBefore' ],
-    [ 'Node', 'prototype', 'isEqualNode' ],
-    [ 'Node', 'prototype', 'removeChild' ]
-  ]
+function featureCheck (globalScope, features) {
   var i, j, k, l, feature, path
 
   for (i = 0, j = features.length; i < j; i++) {
@@ -532,13 +517,13 @@ function bindEvents (events, useCapture) {
   return function (node, value, previousValue, path) {
     var key
 
-    if (value == null)
+    if (value === null)
       for (key in events)
         // The point of removing event listeners here is not manual memory
         // management, but to ensure that after the value has been unset, it
         // no longer triggers events.
         node.removeEventListener(key, listeners[key], useCapture)
-    else if (previousValue == null)
+    else if (previousValue === null)
       for (key in events) {
         listeners[key] = makeEventListener(events[key], path)
         node.addEventListener(key, listeners[key], useCapture)
@@ -559,7 +544,7 @@ function animate (insertClass, mutateClass, removeClass, retainTime) {
 
     if (!('classList' in node)) return void 0
 
-    if (value == null) {
+    if (value === null) {
       if (insertClass) node.classList.remove(insertClass)
       if (removeClass) node.classList.add(removeClass)
       if (retainTime) {
@@ -580,7 +565,7 @@ function animate (insertClass, mutateClass, removeClass, retainTime) {
 
       node.classList.add(mutateClass)
     }
-    else if (previousValue == null && insertClass)
+    else if (previousValue === null && insertClass)
       // Trigger class addition after the element is inserted.
       if (hasMutationObserver && hasDocument &&
         !document.documentElement.contains(node)) {
@@ -630,6 +615,7 @@ var hasDefinitionKey = keyMap.hasDefinition
 var replaceAttributeKey = keyMap.replaceAttribute
 var isBoundToParentKey = keyMap.isBoundToParent
 var isProcessedKey = keyMap.isProcessed
+var markerKey = keyMap.marker
 
 // Element tag names which should have value replaced.
 var replaceValue = [ 'INPUT', 'TEXTAREA', 'PROGRESS' ]
@@ -670,7 +656,20 @@ function simulacra (obj, def, matchNode) {
   var Node = this ? this.Node : window.Node
   var node, query
 
-  featureCheck(this || window)
+  // Before continuing, check if required features are present.
+  featureCheck(this || window, [
+    // ECMAScript features.
+    [ Object, 'defineProperty' ],
+    [ WeakMap ],
+
+    // DOM features. Missing `contains` since apparently it is not on
+    // the Node.prototype in Internet Explorer.
+    [ 'document', 'createTreeWalker' ],
+    [ 'Node', 'prototype', 'cloneNode' ],
+    [ 'Node', 'prototype', 'insertBefore' ],
+    [ 'Node', 'prototype', 'isEqualNode' ],
+    [ 'Node', 'prototype', 'removeChild' ]
+  ])
 
   if (obj === null || typeof obj !== 'object' || isArray(obj))
     throw new TypeError('First argument must be a singular object.')
@@ -693,7 +692,7 @@ function simulacra (obj, def, matchNode) {
     if ('content' in def[0]) def[0] = def[0].content
 
     ensureNodes(this, def[0], def[1])
-    setFrozen(def)
+    setProperties(def)
   }
 
   node = processNodes(this, def[0], def[1])
@@ -785,7 +784,7 @@ function ensureNodes (scope, parentNode, def) {
         setReplaceAttribute(branch, boundNode)
       else console.warn( // eslint-disable-line
         'A change function was not defined on the key "' + key + '".')
-      setFrozen(branch)
+      setProperties(branch)
       continue
     }
 
@@ -797,12 +796,12 @@ function ensureNodes (scope, parentNode, def) {
 
     if (branch[hasDefinitionKey]) {
       ensureNodes(scope, boundNode, branch[1])
-      setFrozen(branch)
+      setProperties(branch)
       continue
     }
 
     setReplaceAttribute(branch, boundNode)
-    setFrozen(branch)
+    setProperties(branch)
   }
 
   // Need to loop again to invalidate containment in adjacent nodes, after the
@@ -817,8 +816,7 @@ function ensureNodes (scope, parentNode, def) {
           'element for the adjacent key "' + adjacentNodes[i][0] + '".')
   }
 
-  // Freeze the definition.
-  setFrozen(def)
+  setProperties(def)
 }
 
 
@@ -831,9 +829,9 @@ function setReplaceAttribute (branch, boundNode) {
 }
 
 
-function setFrozen (obj) {
+function setProperties (obj) {
   Object.defineProperty(obj, isProcessedKey, { value: true })
-  Object.freeze(obj)
+  Object.defineProperty(obj, markerKey, { value: null, writable: true })
 }
 
 },{"./bind_keys":1,"./feature_check":2,"./helpers":3,"./key_map":5,"./process_nodes":6,"./rehydrate":7}],5:[function(require,module,exports){
@@ -843,6 +841,7 @@ var keys = [
   'hasDefinition',
   'isBoundToParent',
   'isProcessed',
+  'marker',
   'replaceAttribute',
   'retainElement'
 ]
@@ -864,17 +863,19 @@ module.exports = keyMap
 var keyMap = require('./key_map')
 
 var isBoundToParentKey = keyMap.isBoundToParent
-
-// Map from definition branches to marker nodes. This is necessary because the
-// definitions are frozen and cannot be written to.
-var markerMap = processNodes.markerMap = new WeakMap()
+var markerKey = keyMap.marker
 
 // Internal map from already processed definitions to ready-to-use nodes.
 var templateMap = new WeakMap()
 
+// A fixed constant for `NodeFilter.SHOW_ALL`.
+var whatToShow = 0xFFFFFFFF
+
 // Option to use comment nodes as markers.
 processNodes.useCommentNode = false
 
+// Avoiding duplication of compatibility hack.
+processNodes.acceptNode = acceptNode
 
 module.exports = processNodes
 
@@ -917,7 +918,7 @@ function processNodes (scope, node, def) {
       else marker = parent.insertBefore(
         document.createTextNode(''), mirrorNode)
 
-      markerMap.set(branch, marker)
+      branch[markerKey] = marker
 
       parent.removeChild(mirrorNode)
     }
@@ -933,7 +934,8 @@ function processNodes (scope, node, def) {
     i = 0
     j = 0
 
-    treeWalker = document.createTreeWalker(node)
+    treeWalker = document.createTreeWalker(
+      node, whatToShow, acceptNode, false)
 
     for (key in def) {
       branch = def[key]
@@ -941,7 +943,7 @@ function processNodes (scope, node, def) {
 
       while (treeWalker.nextNode()) {
         if (i === indices[j]) {
-          markerMap.set(branch, treeWalker.currentNode)
+          branch[markerKey] = treeWalker.currentNode
           i++
           break
         }
@@ -966,7 +968,8 @@ function processNodes (scope, node, def) {
  */
 function matchNodes (scope, node, def) {
   var document = scope ? scope.document : window.document
-  var treeWalker = document.createTreeWalker(node)
+  var treeWalker = document.createTreeWalker(
+    node, whatToShow, acceptNode, false)
   var map = new WeakMap()
   var nodes = []
   var i, j, key, currentNode, childWalker
@@ -988,7 +991,8 @@ function matchNodes (scope, node, def) {
           node: treeWalker.currentNode
         })
         if (processNodes.useCommentNode) offset++
-        childWalker = document.createTreeWalker(currentNode)
+        childWalker = document.createTreeWalker(
+          currentNode, whatToShow, acceptNode, false)
         while (childWalker.nextNode()) offset--
         nodes.splice(i, 1)
         break
@@ -1001,6 +1005,11 @@ function matchNodes (scope, node, def) {
   return map
 }
 
+
+// A crazy Internet Explorer workaround.
+function acceptNode () { return 1 }
+acceptNode.acceptNode = acceptNode
+
 },{"./key_map":5}],7:[function(require,module,exports){
 'use strict'
 
@@ -1010,9 +1019,12 @@ var keyMap = require('./key_map')
 
 var hasDefinitionKey = keyMap.hasDefinition
 var isBoundToParentKey = keyMap.isBoundToParent
-var markerMap = processNodes.markerMap
+var markerKey = keyMap.marker
+var acceptNode = processNodes.acceptNode
 var storeMeta = bindKeys.storeMeta
 
+// A fixed constant for `NodeFilter.SHOW_ELEMENT`.
+var whatToShow = 0x00000001
 
 module.exports = rehydrate
 
@@ -1028,7 +1040,6 @@ module.exports = rehydrate
  */
 function rehydrate (scope, obj, def, node, matchNode) {
   var document = scope ? scope.document : window.document
-  var NodeFilter = scope ? scope.NodeFilter : window.NodeFilter
 
   var key, branch, x, value, change, definition, mount, keyPath
   var meta, valueIsArray, activeNodes, index, treeWalker, currentNode
@@ -1058,10 +1069,12 @@ function rehydrate (scope, obj, def, node, matchNode) {
     valueIsArray = meta.valueIsArray
     x = valueIsArray ? obj[key] : [ obj[key] ]
     index = 0
-    treeWalker = document.createTreeWalker(matchNode, NodeFilter.SHOW_ELEMENT)
+    treeWalker = document.createTreeWalker(
+      matchNode, whatToShow, acceptNode, false)
 
     while (index < activeNodes.length && treeWalker.nextNode()) {
       currentNode = activeNodes[index]
+
       if (treeWalker.currentNode.isEqualNode(currentNode)) {
         activeNodes.splice(index, 1, treeWalker.currentNode)
 
@@ -1087,14 +1100,15 @@ function rehydrate (scope, obj, def, node, matchNode) {
     }
 
     if (index !== activeNodes.length) throw new Error(
-      'Matching nodes could not be found on key "' + key + '".')
+      'Matching nodes could not be found on key "' + key + '", expected ' +
+      activeNodes.length + ', found ' + index + '.')
 
     // Rehydrate marker node.
     currentNode = treeWalker.currentNode
 
     // Ignore comment node setting, comment may already exist.
-    markerMap.set(branch, currentNode.parentNode.insertBefore(
-      document.createTextNode(''), currentNode.nextSibling))
+    branch[markerKey] = currentNode.parentNode.insertBefore(
+      document.createTextNode(''), currentNode.nextSibling)
   }
 }
 
