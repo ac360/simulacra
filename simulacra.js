@@ -1,6 +1,6 @@
 /*!
  * Simulacra.js
- * Version 2.0.2
+ * Version 2.0.3
  * MIT License
  * http://simulacra.js.org/
  */
@@ -570,22 +570,19 @@ function animate (insertClass, mutateClass, removeClass, retainTime) {
       if (hasMutationObserver && hasDocument &&
         !document.documentElement.contains(node)) {
         observer = new MutationObserver(function (mutations) {
-          var i, j, k, l, mutation, addedNode
+          var i, j, k, l, mutation
 
           for (i = 0, j = mutations.length; i < j; i++) {
             mutation = mutations[i]
 
-            for (k = 0, l = mutation.addedNodes.length; k < l; k++) {
-              addedNode = mutation.addedNodes[k]
-
-              if (addedNode === node) {
+            for (k = 0, l = mutation.addedNodes.length; k < l; k++)
+              if (mutation.addedNodes[k] === node) {
                 // Hack to trigger reflow.
                 void node.offsetWidth
 
                 node.classList.add(insertClass)
                 observer.disconnect()
               }
-            }
           }
         })
 
@@ -720,6 +717,7 @@ function ensureNodes (scope, parentNode, def) {
   var Element = scope ? scope.Element : window.Element
   var adjacentNodes = []
   var i, j, key, query, branch, boundNode, ancestorNode, matchedNodes
+  var adjacentNode, adjacentKey
 
   if (typeof def !== 'object') throw new TypeError(
     'The second position must be an object.')
@@ -808,12 +806,15 @@ function ensureNodes (scope, parentNode, def) {
   // adjacent nodes are found.
   for (key in def) {
     boundNode = def[key][0]
-    for (i = 0, j = adjacentNodes.length; i < j; i++)
-      if (adjacentNodes[i][1].contains(boundNode) &&
-        adjacentNodes[i][1] !== boundNode)
+    for (i = 0, j = adjacentNodes.length; i < j; i++) {
+      adjacentKey = adjacentNodes[i][0]
+      adjacentNode = adjacentNodes[i][1]
+
+      if (adjacentNode.contains(boundNode) && adjacentKey !== key)
         throw new Error(
           'The element for key "' + key + '" is contained in the ' +
-          'element for the adjacent key "' + adjacentNodes[i][0] + '".')
+          'element for the adjacent key "' + adjacentKey + '".')
+    }
   }
 
   setProperties(def)
