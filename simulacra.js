@@ -1,6 +1,6 @@
 /*!
  * Simulacra.js
- * Version 2.0.3
+ * Version 2.0.6
  * MIT License
  * http://simulacra.js.org/
  */
@@ -11,28 +11,22 @@ var processNodes = require('./process_nodes')
 var keyMap = require('./key_map')
 
 var markerKey = keyMap.marker
+var metaKey = keyMap.meta
+var isMarkerLastKey = keyMap.isMarkerLast
 var hasDefinitionKey = keyMap.hasDefinition
 var isBoundToParentKey = keyMap.isBoundToParent
 var replaceAttributeKey = keyMap.replaceAttribute
 var retainElementKey = keyMap.retainElement
+var memoizedObjectKey = keyMap.memoizedObject
 
-// This is a global store that keeps the previously assigned values of keys
-// on objects. It is keyed by the bound object and valued by a memoized object
-// that contains the same keys.
-var storeMemo = new WeakMap()
-
-// Internal meta-information about objects. Keyed by bound object and valued by
-// meta-information object.
-var storeMeta = new WeakMap()
+// Fixed constant for text node type.
+var TEXT_NODE = 3
 
 // Element tag names for elements that should update data on change.
 var updateTags = [ 'INPUT', 'TEXTAREA' ]
 
 
 module.exports = bindKeys
-
-// Expose internals, for rehydration purposes.
-bindKeys.storeMeta = storeMeta
 
 
 /**
@@ -54,10 +48,17 @@ function bindKeys (scope, obj, def, parentNode, path) {
     throw new TypeError(
       'Invalid type of value "' + obj + '", object expected.')
 
-  storeMemo.set(obj, {})
+  Object.defineProperty(obj, memoizedObjectKey, {
+    value: {},
+    configurable: true
+  })
 
-  meta = {}
-  storeMeta.set(obj, meta)
+  Object.defineProperty(obj, metaKey, {
+    value: {},
+    configurable: true
+  })
+
+  meta = obj[metaKey]
 
   for (key in def) {
     meta[key] = {
@@ -79,8 +80,8 @@ function bindKeys (scope, obj, def, parentNode, path) {
 // This is an internal function that's used for defining the getters and
 // setters.
 function bindKey (scope, obj, def, key, parentNode) {
-  var memo = storeMemo.get(obj)
-  var meta = storeMeta.get(obj)[key]
+  var memoizedObject = obj[memoizedObjectKey]
+  var meta = obj[metaKey][key]
   var branch = def[key]
   var node = branch[0]
   var change = !branch[hasDefinitionKey] && branch[1]
@@ -104,11 +105,11 @@ function bindKey (scope, obj, def, key, parentNode) {
     configurable: true
   })
 
-  function getter () { return memo[key] }
+  function getter () { return memoizedObject[key] }
 
   // Special case for binding same node as parent.
   function parentSetter (x) {
-    var previousValue = memo[key]
+    var previousValue = memoizedObject[key]
     var returnValue
 
     // Check for no-op.
@@ -125,13 +126,14 @@ function bindKey (scope, obj, def, key, parentNode) {
     }
 
     // If nothing went wrong, set the memoized value.
-    memo[key] = x
+    memoizedObject[key] = x
 
     return x
   }
 
   function setter (x) {
     var marker = branch[markerKey]
+    var isMarkerLast = branch[isMarkerLastKey]
     var value, currentNode
     var a, b, i, j
 
@@ -145,7 +147,11 @@ function bindKey (scope, obj, def, key, parentNode) {
       currentNode = !a || a !== b ? replaceNode(a, b, i) : null
 
       if (currentNode)
-        marker.parentNode.insertBefore(currentNode,
+        if (isMarkerLast) {
+          marker.parentNode.appendChild(currentNode)
+          marker.parentNode.appendChild(marker)
+        }
+        else marker.parentNode.insertBefore(currentNode,
           getNextNode(i + 1, activeNodes) || marker)
     }
 
@@ -173,7 +179,7 @@ function bindKey (scope, obj, def, key, parentNode) {
     }
 
     // If nothing went wrong, set the memoized value.
-    memo[key] = x
+    memoizedObject[key] = x
 
     return x
   }
@@ -185,6 +191,7 @@ function bindKey (scope, obj, def, key, parentNode) {
       get: function () { return value },
       set: function (x) {
         var marker = branch[markerKey]
+        var isMarkerLast = branch[isMarkerLastKey]
         var a, b, currentNode
 
         value = x
@@ -194,7 +201,11 @@ function bindKey (scope, obj, def, key, parentNode) {
         if (a !== b) currentNode = replaceNode(a, b, i)
 
         if (currentNode)
-          marker.parentNode.insertBefore(currentNode,
+          if (isMarkerLast) {
+            marker.parentNode.appendChild(currentNode)
+            marker.parentNode.appendChild(marker)
+          }
+          else marker.parentNode.insertBefore(currentNode,
             getNextNode(i + 1, activeNodes) || marker)
       },
       enumerable: true,
@@ -308,6 +319,7 @@ function bindKey (scope, obj, def, key, parentNode) {
 
   function push () {
     var marker = branch[markerKey]
+    var isMarkerLast = branch[isMarkerLastKey]
     var i = this.length
     var j = i + arguments.length
     var currentNode
@@ -318,7 +330,11 @@ function bindKey (scope, obj, def, key, parentNode) {
     for (j = i + arguments.length; i < j; i++) {
       currentNode = replaceNode(this[i], null, i)
       if (currentNode)
-        marker.parentNode.insertBefore(currentNode, marker)
+        if (isMarkerLast) {
+          marker.parentNode.appendChild(currentNode)
+          marker.parentNode.appendChild(marker)
+        }
+        else marker.parentNode.insertBefore(currentNode, marker)
       defineIndex(this, i)
     }
 
@@ -336,6 +352,7 @@ function bindKey (scope, obj, def, key, parentNode) {
 
   function unshift () {
     var marker = branch[markerKey]
+    var isMarkerLast = branch[isMarkerLastKey]
     var i = this.length
     var j, k, currentNode
 
@@ -348,7 +365,11 @@ function bindKey (scope, obj, def, key, parentNode) {
     for (j = 0, k = arguments.length; j < k; j++) {
       currentNode = replaceNode(arguments[j], null, j)
       if (currentNode)
-        marker.parentNode.insertBefore(currentNode,
+        if (isMarkerLast) {
+          marker.parentNode.appendChild(currentNode)
+          marker.parentNode.appendChild(marker)
+        }
+        else marker.parentNode.insertBefore(currentNode,
           getNextNode(arguments.length, activeNodes) || marker)
     }
 
@@ -359,6 +380,7 @@ function bindKey (scope, obj, def, key, parentNode) {
 
   function splice (start, count) {
     var marker = branch[markerKey]
+    var isMarkerLast = branch[isMarkerLastKey]
     var insert = []
     var i, j, k, value, currentNode
 
@@ -380,7 +402,11 @@ function bindKey (scope, obj, def, key, parentNode) {
     for (i = start + insert.length - 1, j = start; i >= j; i--) {
       currentNode = replaceNode(insert[i - start], null, i)
       if (currentNode)
-        marker.parentNode.insertBefore(currentNode,
+        if (isMarkerLast) {
+          marker.parentNode.appendChild(currentNode)
+          marker.parentNode.appendChild(marker)
+        }
+        else marker.parentNode.insertBefore(currentNode,
           getNextNode(start + insert.length, activeNodes) || marker)
     }
 
@@ -405,7 +431,8 @@ function changeValue (node, value, attribute) {
   switch (attribute) {
   case 'textContent':
     firstChild = node.firstChild
-    if (firstChild && !firstChild.nextSibling && firstChild.nodeType === 3)
+    if (firstChild && !firstChild.nextSibling &&
+      firstChild.nodeType === TEXT_NODE)
       firstChild.textContent = value
     else node.textContent = value
     break
@@ -509,6 +536,19 @@ module.exports = {
 }
 
 
+function makeEventListener (fn, path) {
+  return function eventListener (event) {
+    return fn(event, path)
+  }
+}
+
+
+function ignoreEvent (event) {
+  event.stopPropagation()
+  event.preventDefault()
+}
+
+
 function bindEvents (events, useCapture) {
   var listeners = {}
 
@@ -518,22 +558,21 @@ function bindEvents (events, useCapture) {
     var key
 
     if (value === null)
-      for (key in events)
+      for (key in events) {
         // The point of removing event listeners here is not manual memory
         // management, but to ensure that after the value has been unset, it
         // no longer triggers events.
         node.removeEventListener(key, listeners[key], useCapture)
+
+        // Add a capturing event listener to make future events effectively
+        // ignored.
+        node.addEventListener(key, ignoreEvent, true)
+      }
     else if (previousValue === null)
       for (key in events) {
         listeners[key] = makeEventListener(events[key], path)
         node.addEventListener(key, listeners[key], useCapture)
       }
-  }
-
-  function makeEventListener (fn, path) {
-    return function eventListener (event) {
-      return fn(event, path)
-    }
   }
 }
 
@@ -620,6 +659,20 @@ var replaceValue = [ 'INPUT', 'TEXTAREA', 'PROGRESS' ]
 // Input types which use the "checked" attribute.
 var replaceChecked = [ 'checkbox', 'radio' ]
 
+// A list of features to check for upon instantiation.
+var features = [
+  // ECMAScript features.
+  [ Object, 'defineProperty' ],
+
+  // DOM features. Missing `contains` since apparently it is not on
+  // the Node.prototype in Internet Explorer.
+  [ 'document', 'createTreeWalker' ],
+  [ 'Node', 'prototype', 'cloneNode' ],
+  [ 'Node', 'prototype', 'insertBefore' ],
+  [ 'Node', 'prototype', 'isEqualNode' ],
+  [ 'Node', 'prototype', 'removeChild' ]
+]
+
 // Symbol for retaining an element instead of removing it.
 Object.defineProperty(simulacra, 'retainElement', {
   enumerable: true, value: keyMap.retainElement
@@ -633,8 +686,7 @@ Object.defineProperty(simulacra, 'useCommentNode', {
 })
 
 // Assign helpers on the main export.
-for (helper in helpers)
-  simulacra[helper] = helpers[helper]
+for (helper in helpers) simulacra[helper] = helpers[helper]
 
 
 module.exports = simulacra
@@ -654,19 +706,7 @@ function simulacra (obj, def, matchNode) {
   var node, query
 
   // Before continuing, check if required features are present.
-  featureCheck(this || window, [
-    // ECMAScript features.
-    [ Object, 'defineProperty' ],
-    [ WeakMap ],
-
-    // DOM features. Missing `contains` since apparently it is not on
-    // the Node.prototype in Internet Explorer.
-    [ 'document', 'createTreeWalker' ],
-    [ 'Node', 'prototype', 'cloneNode' ],
-    [ 'Node', 'prototype', 'insertBefore' ],
-    [ 'Node', 'prototype', 'isEqualNode' ],
-    [ 'Node', 'prototype', 'removeChild' ]
-  ])
+  featureCheck(this || window, features)
 
   if (obj === null || typeof obj !== 'object' || isArray(obj))
     throw new TypeError('First argument must be a singular object.')
@@ -839,12 +879,44 @@ function setProperties (obj) {
 'use strict'
 
 var keys = [
+  // Internal flag when a definition is used instead of a change function.
   'hasDefinition',
+
+  // Internal flag that is set when a change function is bound to its
+  // parent object.
   'isBoundToParent',
+
+  // Boolean flag to check whether a Node has already been processed.
   'isProcessed',
+
+  // This boolean flag is used for a DOM performance optimization,
+  // `appendChild` is faster than `insertBefore`.
+  'isMarkerLast',
+
+  // A marker is a superfluous node (empty text or comment) used as a reference
+  // position for the DOM API.
   'marker',
+
+  // Generic key for storing meta information.
+  'meta',
+
+  // This keeps the previously assigned values of keys on objects. It is set on
+  // a bound object and valued by a memoized object that contains the same
+  // keys as the bound object.
+  'memoizedObject',
+
+  // Internally used to match cloned nodes.
+  'matchedNode',
+
+  // Internally used to indicate what attribute to set.
   'replaceAttribute',
-  'retainElement'
+
+  // This is a publicly exposed symbol used for indicating that an element
+  // should be retained in the DOM tree after its value is unset.
+  'retainElement',
+
+  // Used for mapping a DOM Node to its preprocessed template.
+  'template'
 ]
 
 var keyMap = {}
@@ -858,16 +930,15 @@ for (i = 0, j = keys.length; i < j; i++)
 module.exports = keyMap
 
 },{}],6:[function(require,module,exports){
-
 'use strict'
 
 var keyMap = require('./key_map')
 
 var isBoundToParentKey = keyMap.isBoundToParent
 var markerKey = keyMap.marker
-
-// Internal map from already processed definitions to ready-to-use nodes.
-var templateMap = new WeakMap()
+var matchedNodeKey = keyMap.matchedNode
+var templateKey = keyMap.template
+var isMarkerLastKey = keyMap.isMarkerLast
 
 // A fixed constant for `NodeFilter.SHOW_ALL`.
 var whatToShow = 0xFFFFFFFF
@@ -891,30 +962,36 @@ module.exports = processNodes
  */
 function processNodes (scope, node, def) {
   var document = scope ? scope.document : window.document
-  var key, branch, result, mirrorNode, parent, marker, map, indices
+  var key, branch, result, mirrorNode, parent, marker, indices
   var i, j, treeWalker
 
-  result = templateMap.get(def)
+  result = def[templateKey]
 
   if (!result) {
     node = node.cloneNode(true)
-    map = matchNodes(scope, node, def)
     indices = []
+
+    matchNodes(scope, node, def)
 
     for (key in def) {
       branch = def[key]
       if (branch[isBoundToParentKey]) continue
 
-      result = map.get(branch[0])
+      result = branch[0][matchedNodeKey]
       indices.push(result.index)
       mirrorNode = result.node
       parent = mirrorNode.parentNode
 
+      // This value is memoized so that `appendChild` can be used instead of
+      // `insertBefore`, which is a performance optimization.
+      if (mirrorNode.nextElementSibling === null)
+        branch[isMarkerLastKey] = true
+
       if (processNodes.useCommentNode) {
-        marker = parent.insertBefore(document.createComment(
-            ' end "' + key + '" '), mirrorNode)
-        parent.insertBefore(document.createComment(
-          ' begin "' + key + '" '), marker)
+        marker = parent.insertBefore(
+          document.createComment(' end "' + key + '" '), mirrorNode)
+        parent.insertBefore(
+          document.createComment(' begin "' + key + '" '), marker)
       }
       else marker = parent.insertBefore(
         document.createTextNode(''), mirrorNode)
@@ -924,9 +1001,11 @@ function processNodes (scope, node, def) {
       parent.removeChild(mirrorNode)
     }
 
-    templateMap.set(def, {
-      node: node.cloneNode(true),
-      indices: indices
+    Object.defineProperty(def, templateKey, {
+      value: {
+        node: node.cloneNode(true),
+        indices: indices
+      }
     })
   }
   else {
@@ -960,18 +1039,16 @@ function processNodes (scope, node, def) {
 
 
 /**
- * Internal function to find matching DOM nodes on cloned nodes.
+ * Internal function to find and set matching DOM nodes on cloned nodes.
  *
  * @param {*} [scope]
  * @param {Node} node
  * @param {Object} def
- * @return {WeakMap}
  */
 function matchNodes (scope, node, def) {
   var document = scope ? scope.document : window.document
   var treeWalker = document.createTreeWalker(
     node, whatToShow, acceptNode, false)
-  var map = new WeakMap()
   var nodes = []
   var i, j, key, currentNode, childWalker
   var nodeIndex = 0
@@ -987,9 +1064,11 @@ function matchNodes (scope, node, def) {
     for (i = 0, j = nodes.length; i < j; i++) {
       currentNode = nodes[i]
       if (treeWalker.currentNode.isEqualNode(currentNode)) {
-        map.set(currentNode, {
-          index: nodeIndex + offset,
-          node: treeWalker.currentNode
+        Object.defineProperty(currentNode, matchedNodeKey, {
+          value: {
+            index: nodeIndex + offset,
+            node: treeWalker.currentNode
+          }
         })
         if (processNodes.useCommentNode) offset++
         childWalker = document.createTreeWalker(
@@ -1002,8 +1081,6 @@ function matchNodes (scope, node, def) {
 
     nodeIndex++
   }
-
-  return map
 }
 
 
@@ -1021,11 +1098,14 @@ var keyMap = require('./key_map')
 var hasDefinitionKey = keyMap.hasDefinition
 var isBoundToParentKey = keyMap.isBoundToParent
 var markerKey = keyMap.marker
+var metaKey = keyMap.meta
 var acceptNode = processNodes.acceptNode
-var storeMeta = bindKeys.storeMeta
 
 // A fixed constant for `NodeFilter.SHOW_ELEMENT`.
 var whatToShow = 0x00000001
+
+// Fixed constant for comment node type.
+var COMMENT_NODE = 8
 
 module.exports = rehydrate
 
@@ -1047,7 +1127,7 @@ function rehydrate (scope, obj, def, node, matchNode) {
 
   for (key in def) {
     branch = def[key]
-    meta = storeMeta.get(obj)[key]
+    meta = obj[metaKey][key]
     change = !branch[hasDefinitionKey] && branch[1]
     definition = branch[hasDefinitionKey] && branch[1]
     mount = branch[2]
@@ -1107,8 +1187,12 @@ function rehydrate (scope, obj, def, node, matchNode) {
     // Rehydrate marker node.
     currentNode = treeWalker.currentNode
 
-    // Ignore comment node setting, comment may already exist.
-    branch[markerKey] = currentNode.parentNode.insertBefore(
+    // Try to re-use comment node.
+    if (processNodes.useCommentNode &&
+      currentNode.nextSibling !== null &&
+      currentNode.nextSibling.nodeType === COMMENT_NODE)
+      branch[markerKey] = currentNode.nextSibling
+    else branch[markerKey] = currentNode.parentNode.insertBefore(
       document.createTextNode(''), currentNode.nextSibling)
   }
 }
