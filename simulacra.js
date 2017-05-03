@@ -1,6 +1,6 @@
 /*!
  * Simulacra.js
- * Version 2.0.6
+ * Version 2.1.0
  * MIT License
  * http://simulacra.js.org/
  */
@@ -116,7 +116,7 @@ function bindKey (scope, obj, def, key, parentNode) {
     if (x === previousValue) return x
 
     // Need to qualify this check for non-empty value.
-    if (definition && x != null)
+    if (definition && x !== null && x !== void 0)
       bindKeys(scope, x, definition, parentNode, keyPath)
 
     else if (change) {
@@ -594,7 +594,7 @@ function animate (insertClass, mutateClass, removeClass, retainTime) {
         return retainElement
       }
     }
-    else if (value != null && previousValue != null && mutateClass) {
+    else if (value !== null && previousValue !== null && mutateClass) {
       if (node.classList.contains(mutateClass)) {
         node.classList.remove(mutateClass)
 
@@ -1136,7 +1136,7 @@ function rehydrate (scope, obj, def, node, matchNode) {
     if (branch[isBoundToParentKey]) {
       x = obj[key]
 
-      if (definition && x != null)
+      if (definition && x !== null && x !== void 0)
         bindKeys(scope, x, definition, matchNode, keyPath)
       else if (change)
         change(matchNode, x, null, keyPath)
