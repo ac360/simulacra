@@ -82,7 +82,7 @@ AAAA+B8AAPAHAADgAwAAwAEAAOABAADgAQAA4AEAAOADAADgAwAA8AsAAPAPAAD8HwAA/B8AAP4fAAD/
   <span class="hljs-attr">name</span>: <span class="hljs-string">'Pumpkin Spice Latte'</span>,
   <span class="hljs-attr">details</span>: {
     <span class="hljs-attr">size</span>: [ <span class="hljs-string">'Tall'</span>, <span class="hljs-string">'Grande'</span>, <span class="hljs-string">'Venti'</span> ],
-    <span class="hljs-attr">vendor</span>: <span class="hljs-string">'Starbucks'</span>
+    <span class="hljs-attr">vendor</span>: <span class="hljs-string">'Coffee Co.'</span>
   }
 }
 </code></pre><p>Simulacra.js exports only a single function, which binds an object to the DOM. The first argument must be a singular object, and the second argument is a data structure that defines the bindings. The definition must be a CSS selector string, DOM Node, <em>change</em> function or definition object (parent binding only), or an array with at most three elements:</p><ul><li><strong>Index 0</strong>: either a DOM element or a CSS selector string.</li><li><strong>Index 1</strong>: either a definition object, or a <em>change</em> function.</li><li><strong>Index 2</strong>: if index 1 is a definition object, this may be a <em>change</em> function.</li></ul><pre><code class="lang-js"><span class="hljs-keyword">var</span> bindObject = <span class="hljs-built_in">require</span>(<span class="hljs-string">'simulacra'</span>) <span class="hljs-comment">// or `window.simulacra`</span>
