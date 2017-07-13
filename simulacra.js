@@ -1,6 +1,6 @@
 /*!
  * Simulacra.js
- * Version 2.1.2
+ * Version 2.1.3
  * MIT License
  * http://simulacra.js.org/
  */
@@ -668,6 +668,7 @@ var features = [
   // the Node.prototype in Internet Explorer.
   [ 'document', 'createTreeWalker' ],
   [ 'Node', 'prototype', 'cloneNode' ],
+  [ 'Node', 'prototype', 'normalize' ],
   [ 'Node', 'prototype', 'insertBefore' ],
   [ 'Node', 'prototype', 'isEqualNode' ],
   [ 'Node', 'prototype', 'removeChild' ]
@@ -969,6 +970,10 @@ function processNodes (scope, node, def) {
 
   if (!result) {
     node = node.cloneNode(true)
+
+    // Normalizing the node here, should only happen once.
+    node.normalize()
+
     indices = []
 
     matchNodes(scope, node, def)
