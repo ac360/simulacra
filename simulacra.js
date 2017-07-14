@@ -1,6 +1,6 @@
 /*!
  * Simulacra.js
- * Version 2.1.3
+ * Version 2.1.4
  * MIT License
  * http://simulacra.js.org/
  */
@@ -729,6 +729,8 @@ function simulacra (obj, def, matchNode) {
     // Auto-detect template tag.
     if ('content' in def[0]) def[0] = def[0].content
 
+    def[0] = def[0].cloneNode(true)
+    cleanNode(this, def[0])
     ensureNodes(this, def[0], def[1])
     setProperties(def)
   }
@@ -862,6 +864,24 @@ function ensureNodes (scope, parentNode, def) {
 }
 
 
+// Internal function to strip empty text nodes.
+function cleanNode (scope, node) {
+  // A constant for showing text nodes.
+  var showText = 0x00000004
+  var document = scope ? scope.document : window.document
+  var treeWalker = document.createTreeWalker(
+    node, showText, processNodes.acceptNode, false)
+  var textNode
+
+  while (treeWalker.nextNode()) {
+    textNode = treeWalker.currentNode
+    textNode.textContent = textNode.textContent.trim()
+  }
+
+  node.normalize()
+}
+
+
 function setReplaceAttribute (branch, boundNode) {
   Object.defineProperty(branch, replaceAttributeKey, {
     value: ~replaceValue.indexOf(boundNode.nodeName) ?
@@ -942,7 +962,7 @@ var templateKey = keyMap.template
 var isMarkerLastKey = keyMap.isMarkerLast
 
 // A fixed constant for `NodeFilter.SHOW_ALL`.
-var whatToShow = 0xFFFFFFFF
+var showAll = 0xFFFFFFFF
 
 // Option to use comment nodes as markers.
 processNodes.useCommentNode = false
@@ -970,9 +990,6 @@ function processNodes (scope, node, def) {
 
   if (!result) {
     node = node.cloneNode(true)
-
-    // Normalizing the node here, should only happen once.
-    node.normalize()
 
     indices = []
 
@@ -1020,7 +1037,7 @@ function processNodes (scope, node, def) {
     j = 0
 
     treeWalker = document.createTreeWalker(
-      node, whatToShow, acceptNode, false)
+      node, showAll, acceptNode, false)
 
     for (key in def) {
       branch = def[key]
@@ -1053,7 +1070,7 @@ function processNodes (scope, node, def) {
 function matchNodes (scope, node, def) {
   var document = scope ? scope.document : window.document
   var treeWalker = document.createTreeWalker(
-    node, whatToShow, acceptNode, false)
+    node, showAll, acceptNode, false)
   var nodes = []
   var i, j, key, currentNode, childWalker
   var nodeIndex = 0
@@ -1077,7 +1094,7 @@ function matchNodes (scope, node, def) {
         })
         if (processNodes.useCommentNode) offset++
         childWalker = document.createTreeWalker(
-          currentNode, whatToShow, acceptNode, false)
+          currentNode, showAll, acceptNode, false)
         while (childWalker.nextNode()) offset--
         nodes.splice(i, 1)
         break
