@@ -1,6 +1,6 @@
 /*!
  * Simulacra.js
- * Version 2.1.5
+ * Version 2.1.6
  * MIT License
  * http://simulacra.js.org/
  */
@@ -654,7 +654,7 @@ var isProcessedKey = keyMap.isProcessed
 var markerKey = keyMap.marker
 
 // Element tag names which should have value replaced.
-var replaceValue = [ 'INPUT', 'TEXTAREA', 'PROGRESS' ]
+var replaceValue = [ 'INPUT', 'PROGRESS' ]
 
 // Input types which use the "checked" attribute.
 var replaceChecked = [ 'checkbox', 'radio' ]
