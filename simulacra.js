@@ -1,6 +1,6 @@
 /*!
  * Simulacra.js
- * Version 2.1.7
+ * Version 2.1.8
  * MIT License
  * http://simulacra.js.org/
  */
@@ -120,7 +120,8 @@ function bindKey (scope, obj, def, key, parentNode) {
       bindKeys(scope, x, definition, parentNode, keyPath)
 
     else if (change) {
-      returnValue = change(parentNode, x, previousValue, keyPath)
+      returnValue = change(parentNode, x,
+        previousValue === void 0 ? null : previousValue, keyPath)
       if (returnValue !== void 0)
         changeValue(parentNode, returnValue, branch[replaceAttributeKey])
     }
