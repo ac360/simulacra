@@ -1,6 +1,6 @@
 /*!
  * Simulacra.js
- * Version 2.1.8
+ * Version 2.1.9
  * MIT License
  * http://simulacra.js.org/
  */
@@ -112,6 +112,10 @@ function bindKey (scope, obj, def, key, parentNode) {
     var previousValue = memoizedObject[key]
     var returnValue
 
+    // Optimistically set the memoized value, so it persists even if an error
+    // occurs after this point.
+    memoizedObject[key] = x
+
     // Check for no-op.
     if (x === previousValue) return x
 
@@ -126,9 +130,6 @@ function bindKey (scope, obj, def, key, parentNode) {
         changeValue(parentNode, returnValue, branch[replaceAttributeKey])
     }
 
-    // If nothing went wrong, set the memoized value.
-    memoizedObject[key] = x
-
     return x
   }
 
@@ -137,6 +138,10 @@ function bindKey (scope, obj, def, key, parentNode) {
     var isMarkerLast = branch[isMarkerLastKey]
     var value, currentNode
     var a, b, i, j
+
+    // Optimistically set the memoized value, so it persists even if an error
+    // occurs after this point.
+    memoizedObject[key] = x
 
     valueIsArray = meta.valueIsArray = Array.isArray(x)
     value = valueIsArray ? x : [ x ]
@@ -178,9 +183,6 @@ function bindKey (scope, obj, def, key, parentNode) {
       for (i = 0, j = value.length; i < j; i++)
         defineIndex(value, i)
     }
-
-    // If nothing went wrong, set the memoized value.
-    memoizedObject[key] = x
 
     return x
   }
