@@ -1,6 +1,6 @@
 /*!
  * Simulacra.js
- * Version 2.1.13
+ * Version 2.1.14
  * MIT License
  * http://simulacra.js.org/
  */
@@ -772,10 +772,8 @@ function ensureNodes (parentNode, def) {
 
     // Change function or definition object bound to parent.
     if (typeof branch === 'function' || (typeof branch === 'object' &&
-      branch !== null && !Array.isArray(branch))) {
-      isBoundToParent = true
+      branch !== null && !Array.isArray(branch)))
       def[key] = branch = [ parentNode, branch ]
-    }
 
     // Cast CSS selector string to array.
     else if (typeof branch === 'string') def[key] = branch = [ branch ]
