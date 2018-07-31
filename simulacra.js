@@ -1,10 +1,10 @@
 /*!
  * Simulacra.js
- * Version 2.1.11
+ * Version 2.1.13
  * MIT License
  * http://simulacra.js.org/
  */
-(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+(function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 'use strict'
 
 var processNodes = require('./process_nodes')
@@ -69,6 +69,11 @@ function bindKeys (scope, obj, def, parentNode, path) {
       },
       activeNodes: [],
       previousValues: [],
+
+      // Assign the current marker relevant to this object. This is in case of
+      // arrays of objects.
+      currentMarker: def[key][markerKey],
+
       valueIsArray: null
     }
 
@@ -87,6 +92,7 @@ function bindKey (scope, obj, def, key, parentNode) {
   var change = !branch[hasDefinitionKey] && branch[1]
   var definition = branch[hasDefinitionKey] && branch[1]
   var mount = branch[2]
+  var isMarkerLast = branch[isMarkerLastKey]
 
   // Temporary keys.
   var keyPath = meta.keyPath
@@ -134,9 +140,7 @@ function bindKey (scope, obj, def, key, parentNode) {
   }
 
   function setter (x) {
-    var marker = branch[markerKey]
-    var isMarkerLast = branch[isMarkerLastKey]
-    var value, currentNode
+    var value, marker, currentNode
     var a, b, i, j
 
     // Optimistically set the memoized value, so it persists even if an error
@@ -151,6 +155,7 @@ function bindKey (scope, obj, def, key, parentNode) {
       a = value[i]
       b = previousValues[i]
       currentNode = !a || a !== b ? replaceNode(a, b, i) : null
+      marker = meta.currentMarker
 
       if (currentNode)
         if (isMarkerLast) {
@@ -193,15 +198,14 @@ function bindKey (scope, obj, def, key, parentNode) {
     Object.defineProperty(array, i, {
       get: function () { return value },
       set: function (x) {
-        var marker = branch[markerKey]
-        var isMarkerLast = branch[isMarkerLastKey]
-        var a, b, currentNode
+        var a, b, marker, currentNode
 
         value = x
         a = array[i]
         b = previousValues[i]
 
         if (a !== b) currentNode = replaceNode(a, b, i)
+        marker = meta.currentMarker
 
         if (currentNode)
           if (isMarkerLast) {
@@ -217,7 +221,7 @@ function bindKey (scope, obj, def, key, parentNode) {
   }
 
   function removeNode (value, previousValue, i) {
-    var marker = branch[markerKey]
+    var marker = meta.currentMarker
     var activeNode = activeNodes[i]
     var returnValue
 
@@ -321,17 +325,16 @@ function bindKey (scope, obj, def, key, parentNode) {
   }
 
   function push () {
-    var marker = branch[markerKey]
-    var isMarkerLast = branch[isMarkerLastKey]
     var i = this.length
     var j = i + arguments.length
-    var currentNode
+    var marker, currentNode
 
     // Passing arguments to apply is fine.
     var value = Array.prototype.push.apply(this, arguments)
 
     for (j = i + arguments.length; i < j; i++) {
       currentNode = replaceNode(this[i], null, i)
+      marker = meta.currentMarker
       if (currentNode)
         if (isMarkerLast) {
           marker.parentNode.appendChild(currentNode)
@@ -354,10 +357,8 @@ function bindKey (scope, obj, def, key, parentNode) {
   }
 
   function unshift () {
-    var marker = branch[markerKey]
-    var isMarkerLast = branch[isMarkerLastKey]
     var i = this.length
-    var j, k, currentNode
+    var j, k, marker, currentNode
 
     // Passing arguments to apply is fine.
     var value = Array.prototype.unshift.apply(this, arguments)
@@ -367,6 +368,7 @@ function bindKey (scope, obj, def, key, parentNode) {
 
     for (j = 0, k = arguments.length; j < k; j++) {
       currentNode = replaceNode(arguments[j], null, j)
+      marker = meta.currentMarker
       if (currentNode)
         if (isMarkerLast) {
           marker.parentNode.appendChild(currentNode)
@@ -382,10 +384,8 @@ function bindKey (scope, obj, def, key, parentNode) {
   }
 
   function splice (start, count) {
-    var marker = branch[markerKey]
-    var isMarkerLast = branch[isMarkerLastKey]
     var insert = []
-    var i, j, k, value, currentNode
+    var i, j, k, value, marker, currentNode
 
     for (i = start, j = start + count; i < j; i++)
       removeNode(null, previousValues[i], i)
@@ -404,6 +404,7 @@ function bindKey (scope, obj, def, key, parentNode) {
 
     for (i = start + insert.length - 1, j = start; i >= j; i--) {
       currentNode = replaceNode(insert[i - start], null, i)
+      marker = meta.currentMarker
       if (currentNode)
         if (isMarkerLast) {
           marker.parentNode.appendChild(currentNode)
@@ -771,8 +772,10 @@ function ensureNodes (parentNode, def) {
 
     // Change function or definition object bound to parent.
     if (typeof branch === 'function' || (typeof branch === 'object' &&
-      branch !== null && !Array.isArray(branch)))
+      branch !== null && !Array.isArray(branch))) {
+      isBoundToParent = true
       def[key] = branch = [ parentNode, branch ]
+    }
 
     // Cast CSS selector string to array.
     else if (typeof branch === 'string') def[key] = branch = [ branch ]
@@ -799,9 +802,10 @@ function ensureNodes (parentNode, def) {
 
       branch[0] = matchedNodes[0]
     }
-    else throw new TypeError(
-      'The first position on key "' + key +
-      '" must be a CSS selector string.')
+    else if (!branch[0])
+      throw new TypeError(
+        'The first position on key "' + key +
+        '" must be a CSS selector string.')
 
     // Auto-detect template tag.
     if ('content' in branch[0]) branch[0] = branch[0].content
@@ -887,7 +891,7 @@ function setReplaceAttribute (branch, boundNode) {
   Object.defineProperty(branch, replaceAttributeKey, {
     value: ~replaceValue.indexOf(boundNode.nodeName) ?
       ~replaceChecked.indexOf(boundNode.type) ?
-      'checked' : 'value' : 'textContent'
+        'checked' : 'value' : 'textContent'
   })
 }
 
