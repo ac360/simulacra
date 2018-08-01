@@ -1,6 +1,6 @@
 /*!
  * Simulacra.js
- * Version 2.1.14
+ * Version 2.1.15
  * MIT License
  * http://simulacra.js.org/
  */
@@ -385,7 +385,7 @@ function bindKey (scope, obj, def, key, parentNode) {
 
   function splice (start, count) {
     var insert = []
-    var i, j, k, value, marker, currentNode
+    var i, j, k, value, marker, currentNode, shouldAppend
 
     for (i = start, j = start + count; i < j; i++)
       removeNode(null, previousValues[i], i)
@@ -401,12 +401,13 @@ function bindKey (scope, obj, def, key, parentNode) {
       [ start, count ].concat(Array(insert.length)))
 
     value = Array.prototype.splice.apply(this, arguments)
+    shouldAppend = start - count >= this.length - 1
 
     for (i = start + insert.length - 1, j = start; i >= j; i--) {
       currentNode = replaceNode(insert[i - start], null, i)
       marker = meta.currentMarker
       if (currentNode)
-        if (isMarkerLast) {
+        if (isMarkerLast && shouldAppend) {
           marker.parentNode.appendChild(currentNode)
           marker.parentNode.appendChild(marker)
         }
