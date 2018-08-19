@@ -1,6 +1,6 @@
 /*!
  * Simulacra.js
- * Version 2.1.15
+ * Version 2.1.16
  * MIT License
  * http://simulacra.js.org/
  */
@@ -762,7 +762,7 @@ function simulacra (obj, def, matchNode) {
  */
 function ensureNodes (parentNode, def) {
   var adjacentNodes = []
-  var i, j, key, query, branch, boundNode, ancestorNode, matchedNodes
+  var i, j, key, query, branch, boundNode, matchedNodes
   var adjacentNode, adjacentKey
 
   if (typeof def !== 'object') throw new TypeError(
@@ -786,12 +786,8 @@ function ensureNodes (parentNode, def) {
     if (typeof branch[0] === 'string') {
       query = branch[0]
 
-      // May need to get the node above the parent, in case of binding to
-      // the parent node.
-      ancestorNode = parentNode.parentNode || parentNode
-
       // Match all nodes for the selector, pick the first and remove the rest.
-      matchedNodes = ancestorNode.querySelectorAll(query)
+      matchedNodes = parentNode.querySelectorAll(query)
 
       if (!matchedNodes.length) throw new Error(
         'An element for selector "' + query + '" was not found.')
